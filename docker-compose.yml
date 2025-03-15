@@ -20,9 +20,7 @@ services:
     volumes:
       - /webtop-config:/config:rw
       - /webtop-inject-scripts:/custom-cont-init.d:rw
-    ports:
-      - 3000:3000
-      - 3001:3001
+
     devices:
       - /dev/dri:/dev/dri # optional
     shm_size: "4gb" # optional
