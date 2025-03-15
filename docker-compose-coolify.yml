@@ -1,7 +1,9 @@
 name: webtop-os
 services:
   webtop:
-    image: 'my-custom-webtop:latest'
+    build:
+      context: .
+      dockerfile: Dockerfile.custom
     container_name: webtop
     security_opt:
       - 'seccomp:unconfined'
@@ -24,10 +26,6 @@ services:
         target: /config
         is_directory: true
       # Removed the bind mount for /custom-cont-init.d to ensure the baked-in scripts are used
-      # - type: bind
-      #   source: ./webtop-inject-scripts
-      #   target: /custom-cont-init.d
-      #   is_directory: true
     devices:
       - '/dev/dri:/dev/dri'
     shm_size: 4gb
