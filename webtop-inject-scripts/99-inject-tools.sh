@@ -2,8 +2,12 @@
 set -e
 
 # Install Robocorp RCC tool
-curl -L -o /usr/local/bin/action-server https://downloads.robocorp.com/action-server/releases/latest/linux64/action-server
-chmod +x /usr/local/bin/action-server
+#curl -L -o /usr/local/bin/action-server https://downloads.robocorp.com/action-server/releases/latest/linux64/action-server
+#chmod +x /usr/local/bin/action-server
+
+wget -O action-server https://github.com/Sema4AI/actions/releases/download/sema4ai-action_server-2.6.0/sema4ai-action_server-2.6.0-linux64 
+chmod +x action-server
+sudo mv action-server /usr/local/bin/
 
 #curl -L -o /usr/local/bin/rcc https://github.com/joshyorko/rcc/releases/download/v1.0.0/rcc-linux64
 #chmod +x /usr/local/bin/rcc
