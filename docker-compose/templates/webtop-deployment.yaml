@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.yml -c --volumes persistentVolumeClaim --controller deployment --namespace webtop --pvc-request-size 10Gi --with-kompose-annotation -v
+    kompose.version: 1.35.0 (9532ceef3)
+  labels:
+    io.kompose.service: webtop
+  name: webtop
+  namespace: webtop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: webtop
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f docker-compose.yml -c --volumes persistentVolumeClaim --controller deployment --namespace webtop --pvc-request-size 10Gi --with-kompose-annotation -v
+        kompose.version: 1.35.0 (9532ceef3)
+      labels:
+        io.kompose.service: webtop
+    spec:
+      containers:
+        - env:
+            - name: CUSTOM_USER
+              value: webtop
+            - name: DOCKER_MODS
+              value: linuxserver/mods:universal-package-install|linuxserver/mods:code-server-zsh
+            - name: INSTALL_PACKAGES
+              value: unzip|chromium|nano|neovim|git|htop|curl|wget|ripgrep|fonts-lyx|xclip|xsel|gcc|clang|build-essential|libgtk-4-1|libgraphene-1.0-0|libxslt1.1|libwoff1|libevent-2.1-7|libgstreamer-gl1.0-0|libgstreamer-plugins-bad1.0-0|libharfbuzz-icu0|libsecret-1-0|libhyphen0|libmanette-0.2-0|libgles2|x11-xserver-utils|xorg|x11-common|x11-utils
+            - name: PASSWORD
+              value: toor
+            - name: PGID
+              value: "1000"
+            - name: PUID
+              value: "1000"
+            - name: SUBFOLDER
+              value: /
+            - name: SUDO_PASSWORD
+              value: toor
+            - name: TITLE
+              value: Webtop
+            - name: TZ
+              value: America/New_York
+          image: lscr.io/linuxserver/webtop:ubuntu-xfce
+          name: webtop
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /config
+              name: webtop-config
+            - mountPath: /custom-cont-init.d
+              name: webtop-scripts
+            - mountPath: /data
+              name: webtop-data
+      restartPolicy: Always
+      volumes:
+        - name: webtop-config
+          persistentVolumeClaim:
+            claimName: webtop-config
+        - name: webtop-scripts
+          configMap:
+            name: webtop-scripts
+            defaultMode: 0755
+        - name: webtop-data
+          persistentVolumeClaim:
+            claimName: webtop-data
