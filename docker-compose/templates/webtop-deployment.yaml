@@ -56,7 +56,9 @@ spec:
             - mountPath: /config
               name: webtop-config
             - mountPath: /custom-cont-init.d
-              name: webtop-scripts
+              name: webtop-scripts-config
+            - mountPath: /custom-cont-init.d/persistent-scripts
+              name: webtop-scripts-pvc
             - mountPath: /data
               name: webtop-data
       restartPolicy: Always
@@ -64,10 +66,13 @@ spec:
         - name: webtop-config
           persistentVolumeClaim:
             claimName: webtop-config
-        - name: webtop-scripts
+        - name: webtop-scripts-config
           configMap:
             name: webtop-scripts
             defaultMode: 0755
+        - name: webtop-scripts-pvc
+          persistentVolumeClaim:
+            claimName: webtop-scripts
         - name: webtop-data
           persistentVolumeClaim:
             claimName: webtop-data
