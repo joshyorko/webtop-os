@@ -5,7 +5,7 @@ set -e
 #curl -L -o /usr/local/bin/action-server https://downloads.robocorp.com/action-server/releases/latest/linux64/action-server
 #chmod +x /usr/local/bin/action-server
 
-wget -O action-server https://github.com/Sema4AI/actions/releases/download/sema4ai-action_server-2.6.0/sema4ai-action_server-2.6.0-linux64 
+wget -O action-server https://cdn.sema4.ai/action-server/releases/latest/linux64/action-server 
 chmod +x action-server
 sudo mv action-server /usr/local/bin/
 
