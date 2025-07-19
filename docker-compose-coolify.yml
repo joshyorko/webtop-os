@@ -28,7 +28,7 @@ services:
 
 
       # (optional) reuse that same value in another var your app reads
-      BASE_URL: $SERVICE_FQDN_WEBTOP
+      BASE_URL: $SERVICE_FQDN_WEBTOP_3000
 
       # 👉 your extra LinuxServer mods & packages
       DOCKER_MODS: linuxserver/mods:universal-package-install|linuxserver/mods:code-server-zsh
