@@ -1,4 +1,3 @@
-version: "3.9"            # <— good practice with Coolify
 name: webtop-os
 
 services:
@@ -27,8 +26,6 @@ services:
       SUDO_PASSWORD: ${SERVICE_PASSWORD_WEBTOP}
       PASSWORD: ${SERVICE_PASSWORD_WEBTOP}
 
-      # 2️⃣  ask Coolify to generate a public URL & proxy
-      SERVICE_FQDN_WEBTOP          # becomes e.g. http://webtop-abcd.example.com:3000
 
       # (optional) reuse that same value in another var your app reads
       BASE_URL: $SERVICE_FQDN_WEBTOP
