@@ -32,4 +32,3 @@ services:
     restart: unless-stopped
     privileged: true
 
-how do i fix this?
