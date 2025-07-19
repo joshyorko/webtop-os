@@ -15,7 +15,7 @@ services:
       CUSTOM_USER: ${SERVICE_USER_WEBTOP}
       SUDO_PASSWORD: ${SERVICE_PASSWORD_WEBTOP}
       PASSWORD: ${SERVICE_PASSWORD_WEBTOP}
-      BASE_URL: ${COOLIFY_FQDN}          # or SERVICE_FQDN_WEBTOP
+      BASE_URL: ${SERVICE_FQDN_WEBTOP}          # or SERVICE_FQDN_WEBTOP
       DOCKER_MODS: linuxserver/mods:universal-package-install|linuxserver/mods:code-server-zsh
       INSTALL_PACKAGES: unzip|chromium|nano|neovim|git|htop|curl|wget|ripgrep|fonts-lyx|xclip|xsel|gcc|clang|build-essential|libgtk-4-1|libgraphene-1.0-0|libxslt1.1|libwoff1|libevent-2.1-7|libgstreamer-gl1.0-0|libgstreamer-plugins-bad1.0-0|libharfbuzz-icu0|libsecret-1-0|libhyphen0|libmanette-0.2-0|libgles2|x11-xserver-utils|xorg|x11-common|x11-utils
     volumes:
