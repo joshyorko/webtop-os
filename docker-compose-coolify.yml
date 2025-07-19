@@ -26,6 +26,7 @@ services:
       SUDO_PASSWORD: ${SERVICE_PASSWORD_WEBTOP}
       PASSWORD: ${SERVICE_PASSWORD_WEBTOP}
 
+      - SERVICE_FQDN_WEBTOP_3000
 
       # (optional) reuse that same value in another var your app reads
       BASE_URL: $SERVICE_FQDN_WEBTOP
