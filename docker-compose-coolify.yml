@@ -1,27 +1,35 @@
+name: webtop-os
 services:
   webtop:
     build:
       context: .
       dockerfile: Dockerfile.custom
+    container_name: webtop
     security_opt:
-      - seccomp:unconfined
+      - 'seccomp:unconfined'
     environment:
-      PUID: 1000
-      PGID: 1000
-      TZ: America/New_York
-      TITLE: Webtop
-      CUSTOM_USER: ${SERVICE_USER_WEBTOP}
-      SUDO_PASSWORD: ${SERVICE_PASSWORD_WEBTOP}
-      PASSWORD: ${SERVICE_PASSWORD_WEBTOP}
-      SERVICE_FQDN_WEBTOP_3000          # <-- generates FQDN + route
-      DOCKER_MODS: linuxserver/mods:universal-package-install|linuxserver/mods:code-server-zsh
-      INSTALL_PACKAGES: unzip|chromium|nano|neovim|git|htop|curl|wget|ripgrep|fonts-lyx|xclip|xsel|gcc|clang|build-essential|...
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - SUBFOLDER=/
+      - TITLE=Webtop
+      # Dynamic credentials—Coolify will generate these and show them in the UI for editing:
+      - CUSTOM_USER=${SERVICE_USER_WEBTOP}
+      - SUDO_PASSWORD=${SERVICE_PASSWORD_WEBTOP}
+      - PASSWORD=${SERVICE_PASSWORD_WEBTOP}
+      - DOCKER_MODS=linuxserver/mods:universal-package-install|linuxserver/mods:code-server-zsh
+      - INSTALL_PACKAGES=unzip|chromium|nano|neovim|git|htop|curl|wget|ripgrep|fonts-lyx|xclip|xsel|gcc|clang|build-essential|libgtk-4-1|libgraphene-1.0-0|libxslt1.1|libwoff1|libevent-2.1-7|libgstreamer-gl1.0-0|libgstreamer-plugins-bad1.0-0|libharfbuzz-icu0|libsecret-1-0|libhyphen0|libmanette-0.2-0|libgles2|x11-xserver-utils|xorg|x11-common|x11-utils
+      - SERVICE_FQDN_WEBTOP_3000
     volumes:
-      - ./webtop-config:/config:rw
+      - type: bind
+        source: ./webtop-config
+        target: /config
+        is_directory: true
+      # Removed the bind mount for /custom-cont-init.d to ensure the baked-in scripts are used
     devices:
-      - /dev/dri:/dev/dri
+      - '/dev/dri:/dev/dri'
     shm_size: 4gb
     restart: unless-stopped
     privileged: true
-    ports:
-      - "3000"        # lets Coolify discover the port
+
+how do i fix this?
