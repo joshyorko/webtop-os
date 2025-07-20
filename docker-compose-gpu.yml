@@ -2,7 +2,7 @@ name: webtop-os
 
 services:
   webtop:
-    image: lscr.io/linuxserver/webtop:latest
+    image: lscr.io/linuxserver/webtop:ubuntu-mate-selkies
     container_name: webtop
     security_opt:
       - seccomp:unconfined # optional
@@ -30,7 +30,14 @@ services:
       - 3000:3000
       - 3001:3001
     devices:
-      - /dev/dri:/dev/dri # optional
+      - /dev/dri:/dev/dri # GPU acceleration
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [compute,video,graphics,utility]
     shm_size: "4gb" # Increased for better Selkies performance
     restart: unless-stopped
     privileged: true # Enable privileged mode for DinD
