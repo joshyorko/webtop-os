@@ -1,5 +1,5 @@
 # Use the upstream webtop image as the base
-FROM lscr.io/linuxserver/webtop:latest
+FROM lscr.io/linuxserver/webtop:debian-xfce
 
 # Copy the injection scripts from your repository into the container
 # (Ensure the 'webtop-inject-scripts' directory exists in the repo root)
