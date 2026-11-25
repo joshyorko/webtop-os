@@ -1,89 +1,32 @@
 #!/bin/bash
-set -e
+# Optional container-init updater/installer for joshyorko/actions (action-server) and joshyorko/rcc (rcc).
+set -euo pipefail
 
-# Function to show step progress
-show_progress() {
-    echo "⌛ $1..."
-}
+update_tools="${UPDATE_ACTIONS_TOOLS:-false}"
 
-# Function to show success
-show_success() {
-    echo "✅ $1"
-}
-
-# Function to handle errors
-handle_error() {
-    echo "❌ Error: $1"
-    exit 1
-}
-
-echo "🚀 Installing Sema4.ai tools..."
-
-# Check if tools are already installed and working
-if command -v action-server >/dev/null 2>&1 && command -v rcc >/dev/null 2>&1; then
-    echo "✅ Tools already installed and available"
-    action-server --version || true
-    rcc version || true
-    exit 0
+if [[ "${update_tools,,}" != "true" ]] && command -v action-server >/dev/null 2>&1 && command -v rcc >/dev/null 2>&1; then
+  exit 0
 fi
 
-# Create temp directory for downloads
-TEMP_DIR=$(mktemp -d)
-cd "$TEMP_DIR"
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
 
-show_progress "Installing Action Server"
-{
-    wget -O action-server https://cdn.sema4.ai/action-server/releases/latest/linux64/action-server &&
-    chmod +x action-server &&
-    sudo mv action-server /usr/local/bin/ &&
-    sudo chown root:root /usr/local/bin/action-server
-} || handle_error "Failed to install Action Server"
-show_success "Action Server installed"
-
-show_progress "Installing RCC"
-{
-    curl -o rcc https://cdn.sema4.ai/rcc/releases/latest/linux64/rcc &&
-    chmod +x rcc &&
-    sudo mv rcc /usr/local/bin/ &&
-    sudo chown root:root /usr/local/bin/rcc
-} || handle_error "Failed to install RCC"
-show_success "RCC installed"
-
-# Clean up temp directory
-cd /
-rm -rf "$TEMP_DIR"
-
-# Verify installations
-show_progress "Verifying installations"
-if command -v action-server >/dev/null 2>&1; then
-    show_success "Action Server is available in PATH"
-    action-server version || true
-else
-    handle_error "Action Server not found in PATH after installation"
+if [[ "${update_tools,,}" == "true" ]] || ! command -v action-server >/dev/null 2>&1; then
+  echo "[init] Installing latest action-server from joshyorko/actions..."
+  ACTION_SERVER_URL=$(
+    curl -fsSL "https://api.github.com/repos/joshyorko/actions/releases?per_page=20" 2>/dev/null \
+      | jq -r '[.[] | select(.prerelease == false and (.tag_name | startswith("action-server-")))] | .[0].assets[] | select(.name == "action-server-linux64") | .browser_download_url' \
+      | head -n 1 || true
+  )
+  ACTION_SERVER_URL="${ACTION_SERVER_URL:-https://github.com/joshyorko/actions/releases/download/action-server-v1.2.6/action-server-linux64}"
+  curl -fsSL "$ACTION_SERVER_URL" -o "$TMP_DIR/action-server"
+  install -m 0755 -o root -g root "$TMP_DIR/action-server" /usr/local/bin/action-server
 fi
 
-if command -v rcc >/dev/null 2>&1; then
-    show_success "RCC is available in PATH"
-    rcc version || true
-else
-    handle_error "RCC not found in PATH after installation"
+if [[ "${update_tools,,}" == "true" ]] || ! command -v rcc >/dev/null 2>&1; then
+  echo "[init] Installing latest rcc from joshyorko/rcc..."
+  curl -fsSL "https://github.com/joshyorko/rcc/releases/latest/download/rcc-linux64" -o "$TMP_DIR/rcc"
+  install -m 0755 -o root -g root "$TMP_DIR/rcc" /usr/local/bin/rcc
 fi
 
-# Add tools to system PATH permanently
-echo 'export PATH="/usr/local/bin:$PATH"' | sudo tee -a /etc/environment >/dev/null
-echo 'export PATH="/usr/local/bin:$PATH"' | sudo tee -a /etc/bash.bashrc >/dev/null
-
-# Create symlinks in /usr/bin as backup
-sudo ln -sf /usr/local/bin/action-server /usr/bin/action-server 2>/dev/null || true
-sudo ln -sf /usr/local/bin/rcc /usr/bin/rcc 2>/dev/null || true
-
-show_success "Sema4.ai tools installation completed"
-
-# Ensure machine-inject.sh exists and is executable
-if [ -f "$(dirname "$0")/machine-inject.sh" ]; then
-    chmod +x "$(dirname "$0")/machine-inject.sh"
-    show_success "machine-inject.sh made executable"
-else
-    echo "⚠️  Warning: machine-inject.sh not found in $(dirname "$0")"
-fi
-
+echo "[init] action-server and rcc ready."

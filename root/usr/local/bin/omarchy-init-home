@@ -1,0 +1,88 @@
+#!/bin/bash
+# Initialize missing Omarchy defaults in $HOME from the read-only /defaults/omarchy-profile
+# template as the desktop user. Safe against partial initialization and preserves existing user state.
+set -euo pipefail
+
+if (( EUID == 0 )); then
+  echo "Error: omarchy-init-home must run as the non-root desktop user, not root." >&2
+  exit 1
+fi
+
+export HOME="${HOME:-/config}"
+PROFILE_DIR="/defaults/omarchy-profile"
+PROFILE_VERSION_FILE="/defaults/omarchy-profile.version"
+STATE_DIR="$HOME/.local/state/omarchy"
+DONE_DIR="$STATE_DIR/done"
+LOG_DIR="$STATE_DIR/logs"
+MARKER="$DONE_DIR/container-profile-v1"
+LOG="$LOG_DIR/profile-init.log"
+
+mkdir -p "$HOME/.config" "$HOME/.local/share" "$DONE_DIR" "$LOG_DIR"
+
+exec 9>"$STATE_DIR/.profile-init.lock"
+flock 9
+
+# Fast path once initialization has completed cleanly; never clobber user state.
+if [[ -f "$MARKER" ]]; then
+  exit 0
+fi
+
+exec 3>&1
+exec >>"$LOG" 2>&1
+
+log_msg() {
+  printf '%s\n' "$*"
+  printf '%s\n' "$*" >&3
+}
+
+log_msg "[omarchy-init-home] Initializing user profile in $HOME at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+# 1. Seed missing profile defaults from /defaults/omarchy-profile without overwriting existing user files.
+if [[ -d "$PROFILE_DIR" ]]; then
+  cp -a --update=none "$PROFILE_DIR/." "$HOME/"
+fi
+
+export OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+export PATH="/usr/local/bin:${OMARCHY_PATH}/bin:/lsiopy/bin:/usr/local/sbin:/usr/bin:/bin"
+if [[ -r "$OMARCHY_PATH/default/bash/env-bootstrap" ]]; then
+  # shellcheck disable=SC1091
+  source "$OMARCHY_PATH/default/bash/env-bootstrap"
+fi
+export PATH="/usr/local/bin:${OMARCHY_PATH}/bin:$PATH"
+
+# 2. Run Omarchy user finalization if not already marked done.
+if ! omarchy-done check finalize-user; then
+  OMARCHY_SETUP_CONTEXT=iso-chroot OMARCHY_THEME_HEADLESS=1 \
+    omarchy-provision-user --first-install
+fi
+
+# 3. Guarantee an initial theme & background only when none is configured yet.
+if [[ ! -s "$STATE_DIR/current/theme.name" || ! -d "$STATE_DIR/current/theme" ]]; then
+  OMARCHY_THEME_HEADLESS=1 omarchy-theme-set "Tokyo Night"
+fi
+
+# 4. Verify critical runtime invariants before marking initialization complete.
+for req_file in "$HOME/.config/hypr/hyprland.lua" "$HOME/.config/hypr/monitors.lua" "$STATE_DIR/current/theme.name"; do
+  if [[ ! -s "$req_file" ]]; then
+    log_msg "[omarchy-init-home] Missing or empty required file: $req_file"
+    exit 1
+  fi
+done
+if [[ ! -d "$STATE_DIR/current/theme" ]]; then
+  log_msg "[omarchy-init-home] Missing active theme directory: $STATE_DIR/current/theme"
+  exit 1
+fi
+if [[ ! -e "$STATE_DIR/current/background" ]]; then
+  log_msg "[omarchy-init-home] Missing active background target: $STATE_DIR/current/background"
+  exit 1
+fi
+
+profile_version="unknown"
+if [[ -r "$PROFILE_VERSION_FILE" ]]; then
+  profile_version=$(<"$PROFILE_VERSION_FILE")
+fi
+
+tmp_marker=$(mktemp "$DONE_DIR/.container-profile-v1.XXXXXX")
+printf '%s\n' "$profile_version" >"$tmp_marker"
+mv -f "$tmp_marker" "$MARKER"
+log_msg "[omarchy-init-home] Completed user profile initialization ($profile_version)."

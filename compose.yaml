@@ -1,0 +1,32 @@
+services:
+  omarchy:
+    image: ghcr.io/joshyorko/webtop-os:latest
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: omarchy-quattro
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - SUBFOLDER=${SUBFOLDER:-/}
+      - TITLE=${TITLE:-Omarchy Quattro RS}
+      - PIXELFLUX_WAYLAND=true
+      - OMARCHY_MODE=${OMARCHY_MODE:-1920x1080@60}
+      - OMARCHY_SCALE=${OMARCHY_SCALE:-1}
+      - OMARCHY_GDK_SCALE=${OMARCHY_GDK_SCALE:-1}
+      - SELKIES_ENABLE_CLIPBOARD=true
+      - UPDATE_ACTIONS_TOOLS=${UPDATE_ACTIONS_TOOLS:-false}
+      # Supply optional credentials via private .env or orchestrator secrets:
+      # - CUSTOM_USER=${CUSTOM_USER}
+      # - PASSWORD=${PASSWORD}
+      # - SUDO_PASSWORD=${SUDO_PASSWORD}
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - ./webtop-config:/config:rw
+    ports:
+      - "${PORT_HTTP:-3000}:3000"
+      - "${PORT_HTTPS:-3001}:3001"
+    shm_size: "4gb"
+    restart: unless-stopped

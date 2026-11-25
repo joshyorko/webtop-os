@@ -1,0 +1,43 @@
+#!/bin/bash
+# Container shim for uwsm-app: delegates to /usr/bin/uwsm-app when a systemd
+# user session is active, otherwise executes the target app directly.
+
+if command -v systemctl >/dev/null 2>&1 && systemctl --user is-system-running >/dev/null 2>&1 && [[ -x /usr/bin/uwsm-app ]]; then
+  exec /usr/bin/uwsm-app "$@"
+fi
+
+while (( $# > 0 )); do
+  case "$1" in
+    -s|-t|-a|-d|-p)
+      shift 2
+      ;;
+    --slice=*|--type=*|--app-id=*|--description=*|--property=*)
+      shift
+      ;;
+    -S|-T|-h|--help)
+      if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+        echo "Usage: uwsm-app [options] [--] COMMAND [ARGS...]"
+        exit 0
+      fi
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+(( $# > 0 )) || exit 1
+
+if [[ "$1" == *.desktop && "$1" != */* ]] && command -v gtk-launch >/dev/null 2>&1; then
+  exec gtk-launch "${1%.desktop}" "${@:2}"
+fi
+
+exec "$@"
