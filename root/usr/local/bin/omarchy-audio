@@ -1,0 +1,72 @@
+#!/bin/bash
+set -euo pipefail
+
+pids=()
+ready_marker=/dev/shm/audio.lock
+trap '
+  rm -f -- "$ready_marker"
+  kill "${pids[@]}" 2>/dev/null || true
+  wait "${pids[@]}" 2>/dev/null || true
+' EXIT
+trap 'exit 0' TERM INT
+
+# Selkies and the desktop inherit the locations published by prepare-runtime.
+pulse_socket="${PULSE_RUNTIME_PATH:?}/native"
+pw_socket="${XDG_RUNTIME_DIR:?}/pipewire-0"
+
+require_audio_processes() {
+  local pid
+  for pid in "${pids[@]}"; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      printf '[omarchy-audio] Audio process %s exited during startup.\n' "$pid" >&2
+      exit 1
+    fi
+  done
+}
+
+# s6 can restart this graph without rerunning the container's init scripts.
+rm -f -- "$ready_marker" "$pw_socket" "$pw_socket.lock" "$pulse_socket" "$pulse_socket.lock"
+pipewire 3>&- &
+pids+=("$!")
+for _ in {1..50}; do
+  require_audio_processes
+  [[ -S "$pw_socket" ]] && break
+  sleep .1
+done
+if [[ ! -S "$pw_socket" ]]; then
+  echo "[omarchy-audio] PipeWire socket did not appear: $pw_socket" >&2
+  exit 1
+fi
+
+wireplumber 3>&- &
+pids+=("$!")
+pipewire-pulse 3>&- &
+pids+=("$!")
+
+for _ in {1..50}; do
+  require_audio_processes
+  if [[ -S "$pulse_socket" ]] &&
+      sources=$(pactl -s "unix:$pulse_socket" list short sources) &&
+      mic=$(awk '
+        $2 == "output.monitor" { speaker = 1 }
+        $2 == "input.monitor" { input = 1 }
+        $2 == "SelkiesVirtualMic" || $2 == "output.SelkiesVirtualMic" { mic = $2 }
+        END { if (speaker && input) print mic }
+      ' <<<"$sources") &&
+      [[ -n "$mic" ]] &&
+      pactl -s "unix:$pulse_socket" set-default-sink output &&
+      pactl -s "unix:$pulse_socket" set-default-source "$mic"; then
+    # s6 starts svc-selkies only after the audio graph is usable.
+    require_audio_processes
+    touch -- "$ready_marker"
+    printf '\n' >&3
+    exec 3>&-
+    # A crash in any component restarts the graph together.
+    wait -n "${pids[@]}"
+    exit 1
+  fi
+  sleep .1
+done
+
+echo "[omarchy-audio] Selkies audio endpoints did not become ready" >&2
+exit 1

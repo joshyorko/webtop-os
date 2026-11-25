@@ -1,0 +1,8 @@
+services:
+  omarchy:
+    volumes:
+      - type: bind
+        source: ${WEBTOP_EXTENSIONS_HOST_DIR:-./extensions}
+        target: /webtop-extensions
+        bind:
+          create_host_path: false

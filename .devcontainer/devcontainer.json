@@ -1,3 +1,4 @@
 {
-  "image": "ghcr.io/joshyorko/ror:latest"
+  "image": "ghcr.io/joshyorko/ror:latest",
+  "remoteUser": "vscode"
 }

@@ -29,6 +29,32 @@ A cloud-native, unprivileged OCI container image running **[Omarchy 4.5 ("Quattr
    - HTTP: `http://localhost:3000`
    - HTTPS: `https://localhost:3001`
 
+## Tracked desktop customizations
+
+- Save wallpapers under `extensions/backgrounds/<theme-slug>/`, such as
+  `extensions/backgrounds/tokyo-night/`. Shared extension files are baked into
+  the image and seeded into `/config/webtop-extensions` when missing.
+- To edit the tracked files live on the Docker host, add the extensions override.
+  The desktop UID/GID needs write access to that directory.
+  ```bash
+  docker compose -f compose.yaml -f compose.extensions.yaml up -d
+  git status --short -- extensions/
+  ```
+  Set `WEBTOP_EXTENSIONS_HOST_DIR` to an existing dedicated directory to use a
+  different source. The same `/config` stores private files and desktop state
+  across container replacements. Keep the extension mount enabled when the
+  selected wallpaper lives there.
+- The wallpaper picker and cycler read the linked media from Omarchy's user
+  backgrounds directory. Reopen the picker after updating a file in place.
+  For a new filename, run `webtop-link-extensions` in the Webtop terminal,
+  then `omarchy-theme-bg-switcher`. To extend the native menu, add
+  `extensions/omarchy-menu.jsonc` and run `webtop-link-extensions`. An existing
+  personal menu takes precedence. Restart the desktop if Quickshell still
+  shows the previous menu.
+- Add extra repository packages to `packages-extra.txt`, one name per line.
+  The image installs them with the desktop packages in the full Arch upgrade.
+  See `/usr/share/webtop/installed-packages.txt` for the resolved versions.
+
 ## Essential Omarchy Keybindings
 
 | Shortcut | Action |
@@ -56,9 +82,66 @@ A cloud-native, unprivileged OCI container image running **[Omarchy 4.5 ("Quattr
 | `OMARCHY_GDK_SCALE` | `1` | Default XWayland/GDK integer scale (applied on initial config seed) |
 | `UPDATE_ACTIONS_TOOLS` | `false` | Set to `true` to refresh `action-server` (`joshyorko/actions`) and `rcc` (`joshyorko/rcc`) on container boot |
 
+## Webtop Identity and Host Authentication
+
+LinuxServer runs its services as `abc` and maps that account to `PUID` and `PGID`.
+`WEBTOP_USER` defaults to `kdlocpanda` and provides a second name for the same
+UID, primary group, supplemental groups, shell, and `/config` home. Lookups by
+UID continue to return `abc`. A conflicting existing account stops initialization.
+Use `WEBTOP_USER=abc` to run with a single name. Recreate the container after
+changing the identity or UID/GID. The repository's separate ROR Dev Container
+uses the image's existing `vscode` account.
+
+`WEBTOP_GIT_NAME` and `WEBTOP_GIT_EMAIL` are Git system defaults. The defaults
+are `joshyorko` and `joshyorko@users.noreply.github.com`. Existing global and
+repository Git settings take precedence. Passing `SUDO_PASSWORD` to the service
+requires that password for both Webtop account names through Arch's sudo/PAM
+stack. With the variable unset, both password entries are locked and the
+LinuxServer passwordless sudo policy applies when sudo is enabled.
+
+Use `compose.host-auth.yaml` as the final Compose override on the desktop host.
+It publishes Webtop on IPv4 loopback and mounts a dedicated auth directory
+read-only. The desktop UID must match the host owner of both the directory and
+the files it uses. Use a private directory outside the checkout.
+
+```bash
+export WEBTOP_HOST_AUTH_DIR="$XDG_RUNTIME_DIR/webtop-auth"
+install -d -m 700 "$WEBTOP_HOST_AUTH_DIR"
+```
+
+- **SSH agent.** Start a dedicated `ssh-agent -a "$WEBTOP_HOST_AUTH_DIR/ssh-agent.sock"`
+  on the host and use that socket explicitly with `ssh-add` to load only keys
+  intended for Webtop. Keep the socket mode at `0600`. The container receives
+  access to signing operations through the socket.
+- **Docker registry.** Optionally place a Docker `config.json` at
+  `$WEBTOP_HOST_AUTH_DIR/docker/config.json`. Use directory mode `0700` and file
+  mode `0600`. Include only `{"auths":{"ghcr.io":{"auth":"…"}}}`, where
+  `auth` is the base64-encoded registry username and token separated by a colon.
+  Set `WEBTOP_DOCKER_REGISTRY` to match if using a different registry. Use a
+  token scoped to the required repository and operations. Treat the config as
+  a credential. The overlay supplies registry credentials to compatible
+  clients and leaves the Docker daemon disabled.
+
+```bash
+docker compose -f compose.yaml -f compose.host-auth.yaml up -d
+```
+
+The desktop startup exports `SSH_AUTH_SOCK` and/or `DOCKER_CONFIG` after
+validating the opted-in resources. For a separate shell inside the Webtop
+container, source `/usr/local/libexec/webtop/session-host-auth` as the desktop
+user in Bash. Leave out either resource to enable only the other.
+
+## Audio and desktop updates
+
+The desktop and Selkies share the PipeWire graph under `/run/webtop/desktop`.
+See the container log for audio service diagnostics. Set
+`SELKIES_MICROPHONE_ENABLED=true` to make microphone forwarding available in
+the browser sidebar. The browser still requires a trusted origin and permission.
+Run `omarchy update` for host-side image replacement commands.
+
 ## Logs & Troubleshooting
 
-- Container-shim logs (profile init, Quickshell, Hyprland, PipeWire) are stored inside your persistent `/config` home:
+- Profile and compositor logs are stored in the persistent `/config` home:
   - `webtop-config/.local/state/omarchy/logs/profile-init.log`
   - `webtop-config/.local/state/omarchy/logs/hyprland.log`
   - `webtop-config/.local/state/omarchy/logs/omarchy-shell.log`

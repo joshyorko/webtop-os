@@ -1,0 +1,5 @@
+#!/usr/bin/with-contenv bash
+set -eu
+
+unset LD_PRELOAD
+exec s6-setuidgid abc /usr/local/bin/omarchy-audio

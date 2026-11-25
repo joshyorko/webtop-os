@@ -1,0 +1,65 @@
+#!/usr/bin/with-contenv bash
+set -euo pipefail
+
+fail() {
+  printf '[webtop-identity] %s\n' "$*" >&2
+  exit 1
+}
+
+name=${WEBTOP_USER:-kdlocpanda}
+password=${SUDO_PASSWORD:-}
+[[ $name =~ ^[a-z_][a-z0-9_-]{0,30}$ ]] || fail 'Invalid WEBTOP_USER.'
+[[ $password != *$'\n'* && $password != *$'\r'* ]] || fail 'SUDO_PASSWORD must occupy one line.'
+
+IFS=: read -r _ _ uid gid _ home shell < <(getent passwd abc) || fail "Missing LinuxServer abc account."
+[[ $uid != 0 && $gid != 0 && $home == /config ]] || fail 'Unexpected LinuxServer abc identity.'
+
+# Resolve existing accounts before touching any password, group, or sudo policy.
+account=$(getent passwd "$name") || [[ $? == 2 ]] || fail 'User lookup failed.'
+if [[ -n $account ]]; then
+  IFS=: read -r _ _ found_uid found_gid _ found_home found_shell <<< "$account"
+  [[ $found_uid == "$uid" && $found_gid == "$gid" && $found_home == "$home" && $found_shell == "$shell" ]] ||
+    fail "WEBTOP_USER '$name' conflicts with an existing account."
+fi
+collisions=$(getent passwd | awk -F: -v uid="$uid" -v name="$name" '$3 == uid && $1 != "abc" && $1 != name { print $1 }')
+[[ -z $collisions ]] || fail "PUID $uid is already assigned to another account."
+
+tmp_sudo=$(mktemp /etc/sudoers.d/.abc.XXXXXX)
+tmp_git=$(mktemp /etc/.webtop-gitconfig.XXXXXX)
+trap 'rm -f -- "$tmp_sudo" "$tmp_git"' EXIT
+sudo_users=abc
+[[ $name == abc ]] || sudo_users+=",$name"
+sudo_tag=NOPASSWD
+[[ -z $password ]] || sudo_tag=PASSWD
+printf '%s ALL=(ALL) %s: ALL\n' "$sudo_users" "$sudo_tag" > "$tmp_sudo"
+chmod 0440 "$tmp_sudo"
+visudo -qcf "$tmp_sudo" || fail 'Invalid Webtop sudo policy.'
+
+if [[ $name != abc ]]; then
+  groups=$(getent group | awk -F: '$4 ~ /(^|,)abc(,|$)/ { print $1 }' | paste -sd, -)
+  if [[ -z $account ]]; then
+    useradd --non-unique --uid "$uid" --gid abc --home-dir "$home" \
+      --shell "$shell" --no-create-home --no-log-init --groups "$groups" -- "$name"
+  else
+    usermod --groups "$groups" -- "$name"
+  fi
+fi
+
+# Keep Arch's stock sudo/PAM stack and LinuxServer's DISABLE_SUDO binary policy.
+if [[ -n $password ]]; then
+  {
+    printf 'abc:%s\n' "$password"
+    [[ $name == abc ]] || printf '%s:%s\n' "$name" "$password"
+  } | chpasswd
+else
+  # The Selkies base image ships a known abc password.
+  usermod --password '!' abc
+  [[ $name == abc ]] || usermod --password '!' -- "$name"
+fi
+mv -f -- "$tmp_sudo" /etc/sudoers.d/abc
+
+git config --file "$tmp_git" user.name "${WEBTOP_GIT_NAME:-joshyorko}"
+git config --file "$tmp_git" user.email "${WEBTOP_GIT_EMAIL:-joshyorko@users.noreply.github.com}"
+chmod 0644 "$tmp_git"
+mv -f -- "$tmp_git" /etc/webtop-gitconfig
+git config --system --replace-all include.path /etc/webtop-gitconfig '^/etc/webtop-gitconfig$'

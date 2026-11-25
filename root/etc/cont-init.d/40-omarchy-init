@@ -2,7 +2,7 @@
 # Prepare system directories and delegate missing user-profile initialization to desktop user abc.
 set -eu
 
-TARGET_HOME="${HOME:-/config}"
+TARGET_HOME=/config
 mkdir -p "$TARGET_HOME" /tmp/.X11-unix /etc/omarchy
 chmod 1777 /tmp/.X11-unix
 
@@ -10,6 +10,8 @@ chmod 1777 /tmp/.X11-unix
 if [[ "$(stat -c '%u' "$TARGET_HOME")" != "$(id -u abc)" ]]; then
   chown abc:abc "$TARGET_HOME"
 fi
+
+chmod 0700 "$TARGET_HOME"
 
 # Show Omarchy branding in the Selkies dashboard if available.
 if [[ -f /usr/share/omarchy/icon.png && -d /usr/share/selkies/www ]]; then

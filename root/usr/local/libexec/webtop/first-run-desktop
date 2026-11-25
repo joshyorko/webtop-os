@@ -1,0 +1,7 @@
+#!/bin/bash
+set -euo pipefail
+
+# Retain user setup from Omarchy's first-run step under s6.
+omarchy-input-method configure --defaults ||
+  echo "Input method defaults deferred; run omarchy setup input after login." >&2
+omarchy-hook-install theme-set /usr/share/owe/10-owe-sync

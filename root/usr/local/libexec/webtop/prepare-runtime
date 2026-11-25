@@ -1,0 +1,54 @@
+#!/bin/bash
+# Called from the pinned LinuxServer init-selkies-config before services start.
+set -euo pipefail
+
+fail() {
+  printf 'webtop runtime: %s\n' "$*" >&2
+  exit 1
+}
+
+root_directory() {
+  local dir=$1 uid mode
+  [[ -d "$dir" && ! -L "$dir" ]] || fail "expected directory $dir"
+  read -r uid mode < <(stat -c '%u %a' -- "$dir") || fail "cannot inspect $dir"
+  if [[ "$uid" != 0 ]] || (( (8#$mode & 022) != 0 )); then
+    fail "unsafe ownership or mode on $dir"
+  fi
+}
+
+(( EUID == 0 )) || fail 'custom init must run as root'
+runtime_parent=/run/webtop
+runtime="$runtime_parent/desktop"
+env_dir=/run/s6/container_environment
+
+root_directory /
+root_directory /run
+root_directory /run/s6
+root_directory "$env_dir"
+uid=$(id -u abc)
+gid=$(id -g abc)
+(( uid != 0 )) || fail 'abc must have a non-root UID'
+
+if [[ ! -e "$runtime_parent" && ! -L "$runtime_parent" ]]; then
+  mkdir -m 0755 -- "$runtime_parent"
+fi
+root_directory "$runtime_parent"
+
+if [[ ! -e "$runtime" && ! -L "$runtime" ]]; then
+  install -d -m 0700 -o "$uid" -g "$gid" -- "$runtime"
+fi
+[[ -d "$runtime" && ! -L "$runtime" ]] || fail "expected directory $runtime"
+[[ "$(stat -c '%u:%g:%a' -- "$runtime")" == "$uid:$gid:700" ]] ||
+  fail "expected $runtime to have owner $uid:$gid and mode 0700"
+
+# Container restarts can reuse the writable layer after an unclean shutdown.
+# Only this private runtime directory is disposable. Do not traverse mounts.
+find "$runtime" -xdev -mindepth 1 -delete
+
+pulse="$runtime/pulse"
+install -d -m 0700 -o "$uid" -g "$gid" -- "$pulse"
+
+printf '%s' "$runtime" >"$env_dir/XDG_RUNTIME_DIR"
+printf '%s' "$runtime" >"$env_dir/PIPEWIRE_RUNTIME_DIR"
+printf '%s' "$pulse" >"$env_dir/PULSE_RUNTIME_PATH"
+printf 'unix:%s/native' "$pulse" >"$env_dir/PULSE_SERVER"

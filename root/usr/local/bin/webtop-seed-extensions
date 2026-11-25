@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s dotglob nullglob
+
+copy_missing_file() (
+  local source=$1 target=$2 temporary
+  temporary=$(mktemp -- "${target%/*}/.webtop-seed.XXXXXX")
+  trap 'rm -f -- "$temporary"' EXIT
+  cp --preserve=mode -- "$source" "$temporary"
+  chmod u+w,go-w -- "$temporary"
+
+  # Publish only the complete file. A concurrent writer can claim the name first.
+  if ! ln -T -- "$temporary" "$target" 2>/dev/null &&
+    [[ ! -e "$target" && ! -L "$target" ]]; then
+    printf 'Could not seed extension file: %s\n' "$target" >&2
+    exit 1
+  fi
+)
+
+seed_directory() {
+  local source=$1 destination=$2 entry target
+  if [[ -L "$destination" || ( -e "$destination" && ! -d "$destination" ) ]]; then
+    return
+  fi
+  mkdir -p -- "$destination"
+  [[ ! -L "$destination" ]] || return 0
+
+  for entry in "$source"/*; do
+    [[ ! -L "$entry" ]] || continue
+    target="$destination/${entry##*/}"
+    if [[ -d "$entry" ]]; then
+      seed_directory "$entry" "$target"
+    elif [[ -f "$entry" && ! -e "$target" && ! -L "$target" ]]; then
+      copy_missing_file "$entry" "$target"
+    fi
+  done
+}
+
+[[ -d "$1" && ! -L "$1" ]]
+seed_directory "$1" "$2"

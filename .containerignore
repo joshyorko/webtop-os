@@ -5,4 +5,8 @@
 .env.example
 webtop-config
 compose.yaml
+compose.host-auth.yaml
 README.md
+compose.extensions.yaml
+compose.cpu-proof.yaml
+/webtop-extensions/
