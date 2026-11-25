@@ -1,0 +1,56 @@
+#!/bin/bash
+set -euo pipefail
+
+pids=()
+trap '
+  kill "${pids[@]}" 2>/dev/null || true
+  wait "${pids[@]}" 2>/dev/null || true
+' EXIT
+trap 'exit 0' TERM INT
+
+# Selkies and the desktop inherit the locations published by prepare-runtime.
+pulse_socket="${PULSE_RUNTIME_PATH:?}/native"
+pw_socket="${XDG_RUNTIME_DIR:?}/pipewire-0"
+
+pipewire 3>&- &
+pids+=("$!")
+for _ in {1..50}; do
+  [[ -S "$pw_socket" ]] && break
+  kill -0 "${pids[0]}" 2>/dev/null || exit 1
+  sleep .1
+done
+if [[ ! -S "$pw_socket" ]]; then
+  echo "[omarchy-audio] PipeWire socket did not appear: $pw_socket" >&2
+  exit 1
+fi
+
+wireplumber 3>&- &
+pids+=("$!")
+pipewire-pulse 3>&- &
+pids+=("$!")
+
+for _ in {1..50}; do
+  if [[ -S "$pulse_socket" ]] &&
+      sources=$(pactl -s "unix:$pulse_socket" list short sources) &&
+      mic=$(awk '
+        $2 == "output.monitor" { speaker = 1 }
+        $2 == "input.monitor" { input = 1 }
+        $2 == "SelkiesVirtualMic" || $2 == "output.SelkiesVirtualMic" { mic = $2 }
+        END { if (speaker && input) print mic }
+      ' <<<"$sources") &&
+      [[ -n "$mic" ]] &&
+      pactl -s "unix:$pulse_socket" set-default-sink output &&
+      pactl -s "unix:$pulse_socket" set-default-source "$mic"; then
+    # s6 starts svc-selkies only after the audio graph is usable.
+    printf '\n' >&3
+    exec 3>&-
+    # A crash in any component restarts the graph together.
+    wait -n "${pids[@]}"
+    exit 1
+  fi
+  kill -0 "${pids[@]}" 2>/dev/null || exit 1
+  sleep .1
+done
+
+echo "[omarchy-audio] Selkies audio endpoints did not become ready" >&2
+exit 1

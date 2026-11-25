@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Expose extension media to the upstream theme picker and wallpaper cycler.
+set -euo pipefail
+shopt -s nullglob nocaseglob
+
+extensions=${1:-$HOME/webtop-extensions}
+if (( $# == 0 )) && mountpoint -q /webtop-extensions; then
+  extensions=/webtop-extensions
+fi
+
+for theme_dir in "$extensions"/backgrounds/*/; do
+  theme_dir=${theme_dir%/}
+  [[ ! -L "$theme_dir" ]] || continue
+  target="$HOME/.config/omarchy/backgrounds/${theme_dir##*/}"
+  for media in "$theme_dir"/*.{jpg,jpeg,png,gif,bmp,webp,mp4,m4v,mov,webm,mkv,avi}; do
+    [[ -f "$media" && ! -L "$media" ]] || continue
+    mkdir -p -- "$target"
+    link="$target/${media##*/}"
+    relative="backgrounds/${theme_dir##*/}/${media##*/}"
+    current=$(readlink -- "$link") || current=
+    if [[ $current == "$HOME/webtop-extensions/$relative" || $current == "/webtop-extensions/$relative" ]]; then
+      ln -sfnT -- "$media" "$link"
+    elif ! ln -sT -- "$media" "$link" 2>/dev/null &&
+       [[ ! -e "$link" && ! -L "$link" ]]; then
+      printf 'Could not expose wallpaper: %s\n' "$link" >&2
+      exit 1
+    fi
+  done
+done

@@ -1,0 +1,30 @@
+# Source in the unprivileged desktop session after environment and keyring setup.
+webtop_session_host_auth() {
+  local auth_dir=/run/webtop-host-auth
+  local registry=${WEBTOP_DOCKER_REGISTRY:-ghcr.io}
+  local socket=$auth_dir/ssh-agent.sock
+  local config=$auth_dir/docker/config.json
+
+  [[ ${WEBTOP_HOST_AUTH:-false} == true && $EUID != 0 ]] || return 0
+  [[ -d $auth_dir && ! -L $auth_dir && $(stat -c '%u:%a' -- "$auth_dir") == "$EUID:700" ]] || return 0
+
+  if [[ -S $socket && ! -L $socket && $(stat -c '%u:%a' -- "$socket") == "$EUID:600" ]]; then
+    export SSH_AUTH_SOCK="$socket"
+  fi
+
+  if [[ $registry =~ ^[a-z0-9][a-z0-9.-]*(:[0-9]+)?$ &&
+        -d $auth_dir/docker && ! -L $auth_dir/docker &&
+        $(stat -c '%u:%a' -- "$auth_dir/docker") == "$EUID:700" &&
+        -f $config && ! -L $config && $(stat -c '%u:%a' -- "$config") == "$EUID:600" ]] &&
+     jq -es --arg registry "$registry" '
+       length == 1 and (.[0] |
+         keys == ["auths"] and (.auths | keys == [$registry]) and
+         (.auths[$registry] | keys == ["auth"] and
+           (.auth | strings | test("^[A-Za-z0-9+/]+={0,2}$"))))
+     ' "$config" >/dev/null 2>&1; then
+    export DOCKER_CONFIG="$auth_dir/docker"
+  fi
+}
+
+webtop_session_host_auth
+unset -f webtop_session_host_auth

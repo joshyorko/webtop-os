@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM ghcr.io/linuxserver/baseimage-selkies:arch
+FROM ghcr.io/linuxserver/baseimage-selkies:arch@sha256:b8195fe16b7caa71d1fa9650252bee2cbef86028bd0d762e715b5b31c4e43586
 
 ARG OMARCHY_VERSION=4.5.0
 ARG OMARCHY_CHANNEL=stable
@@ -13,7 +13,9 @@ LABEL org.opencontainers.image.title="Omarchy Quattro RS Webtop" \
 COPY root/etc/pacman.conf /etc/pacman.conf
 COPY root/etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist
 COPY root/usr/share/pacman/keyrings/omarchy-bootstrap.asc /usr/share/pacman/keyrings/omarchy-bootstrap.asc
+COPY packages-extra.txt /usr/share/webtop/packages-extra.txt
 
+# Bootstrap repository trust before the single full upgrade and package install.
 RUN \
   echo "**** prepare container runtime dirs for omarchy-settings scriptlet ****" && \
   mkdir -p /run /run/lock && \
@@ -24,11 +26,21 @@ RUN \
   pacman-key --populate archlinux && \
   pacman-key --add /usr/share/pacman/keyrings/omarchy-bootstrap.asc && \
   pacman-key --lsign-key 40DFB630FF42BCFFB047046CF0134EE680CAC571 && \
-  pacman -Syu --noconfirm && \
-  pacman -S --noconfirm --needed omarchy-keyring && \
+  pacman -Sy --noconfirm --needed omarchy-keyring && \
   pacman-key --populate omarchy && \
-  echo "**** install Omarchy ${OMARCHY_VERSION} (Quattro RS) + core apps + dev tooling ****" && \
-  pacman -S --noconfirm --needed \
+  if pacman -Q pulseaudio >/dev/null 2>&1; then \
+    pacman -R --noconfirm pulseaudio || exit 1; \
+  fi && \
+  set -- && \
+  while IFS= read -r package || [ -n "$package" ]; do \
+    case "$package" in \
+      ''|\#*) continue ;; \
+      -*|*[!a-zA-Z0-9@._+-]*) printf 'Invalid extra package name: %s\n' "$package" >&2; exit 1 ;; \
+    esac; \
+    set -- "$@" "$package"; \
+  done < /usr/share/webtop/packages-extra.txt && \
+  echo "**** upgrade Arch and install Omarchy ${OMARCHY_VERSION} + desktop tools ****" && \
+  pacman -Syu --noconfirm --needed \
     omarchy \
     omarchy-settings \
     omarchy-themes-intros \
@@ -50,6 +62,8 @@ RUN \
     libsecret \
     polkit-gnome \
     pipewire \
+    pipewire-pulse \
+    libpulse \
     wireplumber \
     wl-clipboard \
     wayfreeze \
@@ -65,6 +79,7 @@ RUN \
     sushi \
     evince \
     imv \
+    imagemagick \
     mpv \
     mpv-mpris \
     omarchy-chromium-bin \
@@ -132,9 +147,7 @@ RUN \
     cmake \
     gdb \
     postgresql-libs \
-    aws-cli-v2 \
-    ansible \
-    minio-client && \
+    "$@" && \
   echo "**** apply Omarchy container-safe system tweaks ****" && \
   if [ -f /usr/share/omarchy/install/config/theme-system.sh ]; then \
     bash /usr/share/omarchy/install/config/theme-system.sh; \
@@ -147,6 +160,7 @@ RUN \
     ln -s /usr/local/bin/wrapped-chromium /usr/bin/chromium; \
   fi && \
   rm -f /usr/share/dbus-1/system-services/org.freedesktop.UDisks2.service && \
+  pacman -Q > /usr/share/webtop/installed-packages.txt && \
   echo "**** cleanup caches ****" && \
   rm -rf \
     /config/.cache \
@@ -192,9 +206,7 @@ RUN \
   chmod 0644 /defaults/omarchy-profile.version
 
 # Cloud-native unprivileged runtime defaults placed after heavy package layers.
-ENV WEBTOP_USER=kdlocpanda \
-    WEBTOP_GIT_NAME=joshyorko \
-    TITLE="Omarchy Quattro RS" \
+ENV TITLE="Omarchy Quattro RS" \
     PIXELFLUX_WAYLAND=true \
     OMARCHY_PATH=/usr/share/omarchy \
     OMARCHY_MODE=1920x1080@60 \
@@ -210,10 +222,9 @@ ENV WEBTOP_USER=kdlocpanda \
 # Overlay container shims, Wayland startup, init hooks, and pacman config.
 COPY root/ /
 COPY webtop-inject-scripts/ /custom-cont-init.d/
+COPY extensions/ /defaults/webtop-extensions/
 
-# Match the service account exactly even when a desktop alias is present.
-RUN sed -i 's/grep abc \/etc\/passwd/grep "^abc:" \/etc\/passwd/' /etc/s6-overlay/s6-rc.d/init-adduser/run && \
-    printf '%s\n' '/usr/local/bin/omarchy-desktop-user' >> /etc/s6-overlay/s6-rc.d/init-adduser/run && \
+RUN /usr/local/libexec/webtop/install-runtime && \
     mkdir -p /usr/local/lib && \
     gcc -shared -fPIC -O2 -Wall -Wextra \
       -o /usr/local/lib/libgbm_modifier_guard.so \
@@ -224,11 +235,14 @@ RUN sed -i 's/grep abc \/etc\/passwd/grep "^abc:" \/etc\/passwd/' /etc/s6-overla
     chmod 0755 \
       /usr/local/lib/libgbm_modifier_guard.so \
       /usr/local/lib/libwayland_xdg_sync.so && \
+    chmod -R a+rX,go-w /defaults/webtop-extensions && \
     chmod +x \
       /defaults/startwm_wayland.sh \
       /etc/cont-init.d/40-omarchy-init \
       /usr/local/bin/omarchy-init-home \
-      /usr/local/bin/omarchy-desktop-user \
+      /usr/local/bin/omarchy-audio \
+      /usr/local/bin/webtop-link-wallpapers \
+      /usr/local/bin/webtop-seed-extensions \
       /usr/local/bin/selkies \
       /usr/local/bin/systemd-cat \
       /usr/local/bin/uwsm-app \

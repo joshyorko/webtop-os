@@ -1,0 +1,65 @@
+#!/bin/bash
+# Run as root during image assembly after the Omarchy package and root overlay.
+set -euo pipefail
+
+assets=/usr/local/libexec/webtop
+omarchy=/usr/share/omarchy
+first_run="$omarchy/install/user/first-run"
+
+if (( EUID != 0 )); then
+  echo 'install-runtime must run as root during image assembly.' >&2
+  exit 1
+fi
+
+for file in "$first_run/enable-user-units.sh" "$first_run/wifi.sh" \
+  "$omarchy/bin/omarchy-update" "$omarchy/bin/omarchy-update-available"; do
+  if [[ ! -f "$file" ]]; then
+    printf 'install-runtime: expected Omarchy entry point is missing: %s\n' "$file" >&2
+    exit 1
+  fi
+done
+
+# Keep LinuxServer's init and replace only its persistent socket paths.
+selkies_init=/etc/s6-overlay/s6-rc.d/init-selkies-config/run
+python3 - "$selkies_init" /etc/s6-overlay/s6-rc.d/init-adduser/run <<'PYTHON'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+script = path.read_text()
+runtime = """# XDG Home
+rm -Rf "$HOME/.XDG"
+mkdir -p "$HOME/.XDG"
+chown abc:abc "$HOME/.XDG"
+printf "$HOME/.XDG" > /run/s6/container_environment/XDG_RUNTIME_DIR
+"""
+replacement = """# XDG Home
+bash /usr/local/libexec/webtop/prepare-runtime || exit 1
+export XDG_RUNTIME_DIR
+XDG_RUNTIME_DIR=$(cat /run/s6/container_environment/XDG_RUNTIME_DIR)
+"""
+cups = 'printf "$HOME/.XDG/selkies-cups/cups.sock"'
+if script.count(runtime) != 1 or script.count(cups) != 1:
+    sys.exit("install-runtime: pinned Selkies runtime layout changed")
+cups_replacement = """printf '%s' "$XDG_RUNTIME_DIR/selkies-cups/cups.sock" """
+script = script.replace(runtime, replacement).replace(cups + " ", cups_replacement)
+adduser = Path(sys.argv[2])
+adduser_script = adduser.read_text()
+account_lookup = "grep abc /etc/passwd"
+if adduser_script.count(account_lookup) != 1:
+    sys.exit("install-runtime: pinned LinuxServer account lookup changed")
+
+path.write_text(script)
+adduser.write_text(adduser_script.replace(account_lookup, 'grep "^abc:" /etc/passwd'))
+PYTHON
+bash -n "$selkies_init"
+bash -n /etc/s6-overlay/s6-rc.d/init-adduser/run
+install -o root -g root -m 0755 -T "$assets/first-run-desktop" "$first_run/enable-user-units.sh"
+install -o root -g root -m 0755 -T "$assets/first-run-network" "$first_run/wifi.sh"
+
+# The menu resolves via PATH, while the Omarchy CLI resolves adjacent binaries.
+# Cover both package layouts (links and independent files).
+for command in omarchy-update omarchy-update-available; do
+  install -o root -g root -m 0755 -T "$assets/$command" "$omarchy/bin/$command"
+  install -o root -g root -m 0755 -T "$assets/$command" "/usr/bin/$command"
+done

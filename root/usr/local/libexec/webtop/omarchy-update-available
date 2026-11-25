@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# omarchy:summary=Show where to check for Webtop image updates
+
+# The upstream widget treats exit 0 as a pending update. The current image
+# digest and registry update policy belong to the container host.
+printf '%s\n' 'Check the Webtop image on the container host. Run omarchy update for instructions.'
+exit 1

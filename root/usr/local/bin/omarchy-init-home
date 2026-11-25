@@ -22,12 +22,15 @@ mkdir -p "$HOME/.config" "$HOME/.local/share" "$DONE_DIR" "$LOG_DIR"
 exec 9>"$STATE_DIR/.profile-init.lock"
 flock 9
 
-if [[ -n ${WEBTOP_GIT_NAME:-} ]]; then
-  git config --global user.name "$WEBTOP_GIT_NAME"
+# Seed extensions on replacement even when onboarding has already completed.
+extensions_dir="$HOME/webtop-extensions"
+if mountpoint -q /webtop-extensions; then
+  extensions_dir=/webtop-extensions
 fi
-if [[ -n ${WEBTOP_GIT_EMAIL:-} ]]; then
-  git config --global user.email "$WEBTOP_GIT_EMAIL"
+if ! /usr/local/bin/webtop-seed-extensions /defaults/webtop-extensions "$extensions_dir"; then
+  printf '[omarchy-init-home] Extension seeding incomplete in %s.\n' "$extensions_dir" >&2
 fi
+/usr/local/bin/webtop-link-wallpapers "$extensions_dir"
 
 # Fast path once initialization has completed cleanly; never clobber user state.
 if [[ -f "$MARKER" ]]; then
@@ -46,7 +49,7 @@ log_msg "[omarchy-init-home] Initializing user profile in $HOME at $(date -u '+%
 
 # 1. Seed missing profile defaults from /defaults/omarchy-profile without overwriting existing user files.
 if [[ -d "$PROFILE_DIR" ]]; then
-  cp -R --preserve=links --update=none "$PROFILE_DIR/." "$HOME/"
+  cp -R --preserve=links,mode --update=none "$PROFILE_DIR/." "$HOME/"
 fi
 
 export OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"

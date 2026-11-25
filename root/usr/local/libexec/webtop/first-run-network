@@ -1,0 +1,9 @@
+#!/bin/bash
+# The container's network is configured by its runtime. Defer the package
+# invitation until an outbound HTTPS request succeeds without delaying welcome.
+(
+  if curl -fsS -L --connect-timeout 3 --max-time 8 --retry 2 \
+      --retry-all-errors --retry-max-time 15 -o /dev/null https://omarchy.org/; then
+    bash "${OMARCHY_PATH:-/usr/share/omarchy}/install/user/first-run/setup-agent.hook"
+  fi
+) &

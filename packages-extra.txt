@@ -1,0 +1,4 @@
+# Additional repository packages, one package name per line.
+aws-cli-v2
+ansible
+minio-client

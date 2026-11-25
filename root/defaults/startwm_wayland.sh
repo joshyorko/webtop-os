@@ -5,10 +5,12 @@ ulimit -c 0
 setterm blank 0 2>/dev/null || true
 setterm powerdown 0 2>/dev/null || true
 
-export HOME="${HOME:-/config}"
-export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-$HOME/.XDG}"
-mkdir -p "$HOME/.config" "$HOME/.local/share" "$HOME/.local/state/omarchy/logs" "$XDG_RUNTIME_DIR"
-chmod 700 "$XDG_RUNTIME_DIR"
+export HOME=/config
+if [[ ${XDG_RUNTIME_DIR:-} != /run/webtop/desktop || ! -d "$XDG_RUNTIME_DIR" ]]; then
+  echo "[startwm] Expected the Selkies runtime at /run/webtop/desktop." >&2
+  exit 1
+fi
+mkdir -p "$HOME/.config" "$HOME/.local/share" "$HOME/.local/state/omarchy/logs"
 
 # Keep container shims (/usr/local/bin) ahead of /usr/bin so systemd-cat/uwsm-app/systemd-run work without PID 1 systemd.
 export PATH="/usr/local/bin:/usr/share/omarchy/bin:/lsiopy/bin:/usr/local/sbin:/usr/bin:/bin"
@@ -47,7 +49,7 @@ export HYPRCURSOR_SIZE="${HYPRCURSOR_SIZE:-24}"
 export XKB_DEFAULT_LAYOUT="${XKB_DEFAULT_LAYOUT:-us}"
 export XKB_DEFAULT_RULES="${XKB_DEFAULT_RULES:-evdev}"
 
-# Strip Selkies LD_PRELOAD interposers before running Hyprland, PipeWire, and Quickshell.
+# Strip Selkies LD_PRELOAD interposers before running Hyprland and Quickshell.
 unset LD_PRELOAD
 
 # Fast-path no-op when already initialized; safely retries if cont-init was incomplete.
@@ -92,23 +94,13 @@ export AQ_BACKEND=wayland
 start_omarchy_session() {
   export WAYLAND_DISPLAY="$PARENT_WAYLAND_DISPLAY"
 
-  if command -v pipewire >/dev/null 2>&1; then
-    pipewire >"$HOME/.local/state/omarchy/logs/pipewire.log" 2>&1 &
-    PIPEWIRE_PID=$!
-    for _ in $(seq 1 50); do
-      [[ -S "$XDG_RUNTIME_DIR/pipewire-0" ]] && break
-      sleep 0.1
-    done
-    if command -v wireplumber >/dev/null 2>&1; then
-      wireplumber >"$HOME/.local/state/omarchy/logs/wireplumber.log" 2>&1 &
-      WIREPLUMBER_PID=$!
-    fi
-  fi
-
   if command -v gnome-keyring-daemon >/dev/null 2>&1; then
     eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null)" || true
     export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
   fi
+
+  # shellcheck source=/dev/null
+  source /usr/local/libexec/webtop/session-host-auth
 
   HYPR_PRELOAD=""
   if [[ -r /usr/local/lib/libwayland_xdg_sync.so ]]; then
@@ -121,9 +113,6 @@ start_omarchy_session() {
   wait "$HYPR_PID"
   STATUS=$?
   trap - TERM INT
-
-  [[ -n "${WIREPLUMBER_PID:-}" ]] && kill "$WIREPLUMBER_PID" 2>/dev/null || true
-  [[ -n "${PIPEWIRE_PID:-}" ]] && kill "$PIPEWIRE_PID" 2>/dev/null || true
   return "$STATUS"
 }
 

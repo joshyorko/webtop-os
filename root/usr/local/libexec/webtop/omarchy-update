@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# omarchy:summary=Update Webtop by replacing the container image
+# omarchy:alias=omarchy up
+# omarchy:args=[-y]
+
+if (( $# > 1 )); then
+  printf 'Usage: omarchy update [-y]\n' >&2
+  exit 2
+fi
+
+case "${1:-}" in
+  ''|-y|--help|-h) ;;
+  *)
+    printf 'Usage: omarchy update [-y]\n' >&2
+    exit 2
+    ;;
+esac
+
+cat <<'INSTRUCTIONS'
+Omarchy Webtop updates are delivered as rebuilt container images.
+
+Published images: https://github.com/joshyorko/webtop-os/pkgs/container/webtop-os
+
+From the host, in the directory with your Compose file and existing /config mount:
+  docker compose pull omarchy
+  docker compose up -d --no-build omarchy
+
+If you build your image locally, update your Webtop checkout and run on the host:
+  docker compose build --pull omarchy
+  docker compose up -d --no-build omarchy
+
+For the Work-Jatt profile, use its Compose file and the same private .env:
+  docker compose -f .devcontainer/webtop/compose.yaml pull webtop
+  docker compose -f .devcontainer/webtop/compose.yaml up -d webtop
+
+Keep the same /config mount to retain your desktop profile.
+INSTRUCTIONS
