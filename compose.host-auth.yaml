@@ -1,0 +1,21 @@
+services:
+  omarchy:
+    environment:
+      SSH_AUTH_SOCK: /run/webtop-ssh-agent.sock
+      DOCKER_CONFIG: /run/webtop-docker-config
+    volumes:
+      - type: bind
+        source: ${SSH_AUTH_SOCK:?Export your host SSH agent socket}
+        target: /run/webtop-ssh-agent.sock
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${WEBTOP_DOCKER_CONFIG_DIR:?Set the host registry configuration directory}
+        target: /run/webtop-docker-config
+        read_only: true
+        bind:
+          create_host_path: false
+    ports: !override
+      - "127.0.0.1:${PORT_HTTP:-3000}:3000"
+      - "127.0.0.1:${PORT_HTTPS:-3001}:3001"

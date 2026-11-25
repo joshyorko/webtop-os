@@ -6,6 +6,9 @@ services:
       dockerfile: Containerfile
     container_name: omarchy-quattro
     environment:
+      - WEBTOP_USER=${WEBTOP_USER:-kdlocpanda}
+      - WEBTOP_GIT_NAME=${WEBTOP_GIT_NAME:-joshyorko}
+      - WEBTOP_GIT_EMAIL=${WEBTOP_GIT_EMAIL:-}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}

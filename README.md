@@ -62,3 +62,30 @@ A cloud-native, unprivileged OCI container image running **[Omarchy 4.5 ("Quattr
   - `webtop-config/.local/state/omarchy/logs/profile-init.log`
   - `webtop-config/.local/state/omarchy/logs/hyprland.log`
   - `webtop-config/.local/state/omarchy/logs/omarchy-shell.log`
+
+### Desktop identity and host authentication
+
+Set `WEBTOP_USER`, `WEBTOP_GIT_NAME`, and optional `WEBTOP_GIT_EMAIL` in the private
+`.env`. The Compose defaults are `kdlocpanda` and `joshyorko`. Set `PUID` and
+`PGID` to your host IDs so the workspace and agent socket are accessible.
+
+For host Git SSH and registry authentication, export `SSH_AUTH_SOCK` and set
+`WEBTOP_DOCKER_CONFIG_DIR` to a host directory containing a Docker `config.json`.
+The mounts are read-only and the web ports bind to localhost. Use SSH Git
+remotes. Docker credential helpers configured in that file must also work
+inside the container. Docker daemon access is configured separately.
+
+```sh
+docker compose -f compose.yaml -f compose.host-auth.yaml up -d --build
+```
+
+### Experimental package layer
+
+Put extra package names in `webtop-packages.txt` and build an extension image.
+Keep workspace files in `/config`. Add package changes to the list when you
+want to reproduce them in a fresh container.
+
+```sh
+docker build -f Containerfile -t webtop-os:devcontainer .
+docker build -f Containerfile.packages -t webtop-os:packages .
+```

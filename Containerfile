@@ -192,7 +192,9 @@ RUN \
   chmod 0644 /defaults/omarchy-profile.version
 
 # Cloud-native unprivileged runtime defaults placed after heavy package layers.
-ENV TITLE="Omarchy Quattro RS" \
+ENV WEBTOP_USER=kdlocpanda \
+    WEBTOP_GIT_NAME=joshyorko \
+    TITLE="Omarchy Quattro RS" \
     PIXELFLUX_WAYLAND=true \
     OMARCHY_PATH=/usr/share/omarchy \
     OMARCHY_MODE=1920x1080@60 \
@@ -209,7 +211,10 @@ ENV TITLE="Omarchy Quattro RS" \
 COPY root/ /
 COPY webtop-inject-scripts/ /custom-cont-init.d/
 
-RUN mkdir -p /usr/local/lib && \
+# Match the service account exactly even when a desktop alias is present.
+RUN sed -i 's/grep abc \/etc\/passwd/grep "^abc:" \/etc\/passwd/' /etc/s6-overlay/s6-rc.d/init-adduser/run && \
+    printf '%s\n' '/usr/local/bin/omarchy-desktop-user' >> /etc/s6-overlay/s6-rc.d/init-adduser/run && \
+    mkdir -p /usr/local/lib && \
     gcc -shared -fPIC -O2 -Wall -Wextra \
       -o /usr/local/lib/libgbm_modifier_guard.so \
       /usr/local/src/gbm-modifier-guard.c -ldl && \
@@ -223,6 +228,7 @@ RUN mkdir -p /usr/local/lib && \
       /defaults/startwm_wayland.sh \
       /etc/cont-init.d/40-omarchy-init \
       /usr/local/bin/omarchy-init-home \
+      /usr/local/bin/omarchy-desktop-user \
       /usr/local/bin/selkies \
       /usr/local/bin/systemd-cat \
       /usr/local/bin/uwsm-app \
