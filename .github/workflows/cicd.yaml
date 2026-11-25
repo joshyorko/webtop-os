@@ -44,7 +44,7 @@ jobs:
             type=raw,value=latest
             type=raw,value=quattro
             type=raw,value=4.5.0
-            type=sha,prefix={{branch}}-
+            type=sha,prefix=sha-
             type=ref,event=branch
             type=ref,event=tag
 
