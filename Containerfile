@@ -238,7 +238,7 @@ RUN /usr/local/libexec/webtop/install-runtime && \
     chmod -R a+rX,go-w /defaults/webtop-extensions && \
     chmod +x \
       /defaults/startwm_wayland.sh \
-      /etc/cont-init.d/40-omarchy-init \
+      /usr/local/libexec/webtop/init-profile \
       /usr/local/libexec/webtop/prepare-home \
       /usr/local/bin/omarchy-init-home \
       /usr/local/bin/omarchy-audio \
