@@ -1,0 +1,46 @@
+#!/bin/bash
+# Container shim for systemd-run: delegates to /usr/bin/systemd-run when systemd
+# is active, otherwise runs the target command directly (backgrounded unless --wait/--scope).
+
+if command -v systemctl >/dev/null 2>&1 && systemctl --user is-system-running >/dev/null 2>&1 && [[ -x /usr/bin/systemd-run ]]; then
+  exec /usr/bin/systemd-run "$@"
+fi
+
+wait_mode=0
+while (( $# > 0 )); do
+  case "$1" in
+    --wait|--scope|-G)
+      wait_mode=1
+      shift
+      ;;
+    --user|--system|--quiet|-q|--collect|--remain-after-exit|-r|--pty|-t|--pipe|-P|--same-dir|-d|--no-block|--send-sighup|--service-type=*)
+      shift
+      ;;
+    -u|-p|-E|-S|--unit|--property|--slice|--description|--working-directory|--setenv|--uid|--gid)
+      shift 2
+      ;;
+    --unit=*|--property=*|--slice=*|--description=*|--working-directory=*|--setenv=*|--uid=*|--gid=*)
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+(( $# > 0 )) || exit 1
+
+if (( wait_mode )); then
+  exec "$@"
+fi
+
+"$@" >/dev/null 2>&1 &
+disown 2>/dev/null || true
+exit 0

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GUARD_SO="/usr/local/lib/libgbm_modifier_guard.so"
+if [[ -r "$GUARD_SO" ]]; then
+  case ":${LD_PRELOAD:-}:" in
+    *":${GUARD_SO}:"*) ;;
+    *)
+      export LD_PRELOAD="${GUARD_SO}${LD_PRELOAD:+:${LD_PRELOAD}}"
+      ;;
+  esac
+fi
+
+exec /lsiopy/bin/selkies "$@"

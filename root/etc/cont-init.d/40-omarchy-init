@@ -1,0 +1,22 @@
+#!/usr/bin/with-contenv bash
+# Prepare system directories and delegate missing user-profile initialization to desktop user abc.
+set -eu
+
+TARGET_HOME="${HOME:-/config}"
+mkdir -p "$TARGET_HOME" /tmp/.X11-unix /etc/omarchy
+chmod 1777 /tmp/.X11-unix
+
+# Ensure a newly mounted volume root is writable by the LinuxServer desktop user abc.
+if [[ "$(stat -c '%u' "$TARGET_HOME")" != "$(id -u abc)" ]]; then
+  chown abc:abc "$TARGET_HOME"
+fi
+
+# Show Omarchy branding in the Selkies dashboard if available.
+if [[ -f /usr/share/omarchy/icon.png && -d /usr/share/selkies/www ]]; then
+  cp -f /usr/share/omarchy/icon.png /usr/share/selkies/www/icon.png
+fi
+
+# Initialize missing profile defaults strictly as user abc (safe retry happens in startwm_wayland.sh if interrupted).
+if ! s6-setuidgid abc env HOME="$TARGET_HOME" /usr/local/bin/omarchy-init-home; then
+  echo "[omarchy-init] Profile initialization incomplete; desktop startup will retry." >&2
+fi

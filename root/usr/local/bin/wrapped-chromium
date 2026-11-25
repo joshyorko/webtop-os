@@ -1,0 +1,39 @@
+#!/bin/bash
+# Container-safe Chromium launcher with Wayland Ozone & GPU/software auto-detection.
+
+BIN=""
+for candidate in /usr/bin/chromium-real /usr/bin/omarchy-chromium-real /usr/bin/chromium /usr/bin/omarchy-chromium; do
+  if [[ -x "$candidate" ]]; then
+    BIN="$candidate"
+    break
+  fi
+done
+
+if [[ -z "$BIN" ]]; then
+  echo "wrapped-chromium: no Chromium binary found" >&2
+  exit 1
+fi
+
+EXTRA_ARGS=(
+  --no-sandbox
+  --no-first-run
+  --ozone-platform-hint=auto
+  --enable-features=UseOzonePlatform
+)
+
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+  EXTRA_ARGS+=(--ozone-platform=wayland)
+fi
+
+if [[ "${LIBGL_ALWAYS_SOFTWARE:-}" == "1" ]]; then
+  EXTRA_ARGS+=(--disable-gpu)
+fi
+
+if [[ -d /dev/shm ]]; then
+  shm_kb=$(df -Pk /dev/shm 2>/dev/null | awk 'NR==2 {print $2}')
+  if [[ -n "$shm_kb" ]] && (( shm_kb < 1048576 )); then
+    EXTRA_ARGS+=(--disable-dev-shm-usage)
+  fi
+fi
+
+exec "$BIN" "${EXTRA_ARGS[@]}" "$@"

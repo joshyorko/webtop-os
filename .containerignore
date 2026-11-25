@@ -1,0 +1,8 @@
+.git
+.github
+.devcontainer
+.env
+.env.example
+webtop-config
+compose.yaml
+README.md

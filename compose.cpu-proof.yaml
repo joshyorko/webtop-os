@@ -1,0 +1,13 @@
+services:
+  omarchy:
+    image: webtop-quattro:cpu-proof
+    container_name: !reset null
+    devices: !reset []
+    ports: !override
+      - "127.0.0.1::3000"
+    volumes: !override
+      - proof-config:/config
+    restart: "no"
+
+volumes:
+  proof-config:
