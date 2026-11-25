@@ -11,7 +11,9 @@ root_directory() {
   local dir=$1 uid mode
   [[ -d "$dir" && ! -L "$dir" ]] || fail "expected directory $dir"
   read -r uid mode < <(stat -c '%u %a' -- "$dir") || fail "cannot inspect $dir"
-  [[ "$uid" == 0 ]] && (( (8#$mode & 022) == 0 )) || fail "unsafe ownership or mode on $dir"
+  if [[ "$uid" != 0 ]] || (( (8#$mode & 022) != 0 )); then
+    fail "unsafe ownership or mode on $dir"
+  fi
 }
 
 (( EUID == 0 )) || fail 'custom init must run as root'
@@ -39,12 +41,12 @@ fi
 [[ "$(stat -c '%u:%g:%a' -- "$runtime")" == "$uid:$gid:700" ]] ||
   fail "expected $runtime to have owner $uid:$gid and mode 0700"
 
+# Container restarts can reuse the writable layer after an unclean shutdown.
+# Only this private runtime directory is disposable. Do not traverse mounts.
+find "$runtime" -xdev -mindepth 1 -delete
+
 pulse="$runtime/pulse"
-if [[ ! -e "$pulse" && ! -L "$pulse" ]]; then
-  install -d -m 0700 -o "$uid" -g "$gid" -- "$pulse"
-fi
-[[ -d "$pulse" && ! -L "$pulse" && "$(stat -c '%u:%g:%a' -- "$pulse")" == "$uid:$gid:700" ]] ||
-  fail "expected $pulse to have owner $uid:$gid and mode 0700"
+install -d -m 0700 -o "$uid" -g "$gid" -- "$pulse"
 
 printf '%s' "$runtime" >"$env_dir/XDG_RUNTIME_DIR"
 printf '%s' "$runtime" >"$env_dir/PIPEWIRE_RUNTIME_DIR"

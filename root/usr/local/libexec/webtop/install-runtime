@@ -38,11 +38,11 @@ bash /usr/local/libexec/webtop/prepare-runtime || exit 1
 export XDG_RUNTIME_DIR
 XDG_RUNTIME_DIR=$(cat /run/s6/container_environment/XDG_RUNTIME_DIR)
 """
-cups = 'printf "$HOME/.XDG/selkies-cups/cups.sock"'
+cups = 'printf "$HOME/.XDG/selkies-cups/cups.sock" '
 if script.count(runtime) != 1 or script.count(cups) != 1:
     sys.exit("install-runtime: pinned Selkies runtime layout changed")
 cups_replacement = """printf '%s' "$XDG_RUNTIME_DIR/selkies-cups/cups.sock" """
-script = script.replace(runtime, replacement).replace(cups + " ", cups_replacement)
+script = script.replace(runtime, replacement).replace(cups, cups_replacement)
 adduser = Path(sys.argv[2])
 adduser_script = adduser.read_text()
 account_lookup = "grep abc /etc/passwd"

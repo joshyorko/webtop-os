@@ -2,7 +2,9 @@
 set -euo pipefail
 
 pids=()
+ready_marker=/dev/shm/audio.lock
 trap '
+  rm -f -- "$ready_marker"
   kill "${pids[@]}" 2>/dev/null || true
   wait "${pids[@]}" 2>/dev/null || true
 ' EXIT
@@ -12,11 +14,23 @@ trap 'exit 0' TERM INT
 pulse_socket="${PULSE_RUNTIME_PATH:?}/native"
 pw_socket="${XDG_RUNTIME_DIR:?}/pipewire-0"
 
+require_audio_processes() {
+  local pid
+  for pid in "${pids[@]}"; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      printf '[omarchy-audio] Audio process %s exited during startup.\n' "$pid" >&2
+      exit 1
+    fi
+  done
+}
+
+# s6 can restart this graph without rerunning the container's init scripts.
+rm -f -- "$ready_marker" "$pw_socket" "$pw_socket.lock" "$pulse_socket" "$pulse_socket.lock"
 pipewire 3>&- &
 pids+=("$!")
 for _ in {1..50}; do
+  require_audio_processes
   [[ -S "$pw_socket" ]] && break
-  kill -0 "${pids[0]}" 2>/dev/null || exit 1
   sleep .1
 done
 if [[ ! -S "$pw_socket" ]]; then
@@ -30,6 +44,7 @@ pipewire-pulse 3>&- &
 pids+=("$!")
 
 for _ in {1..50}; do
+  require_audio_processes
   if [[ -S "$pulse_socket" ]] &&
       sources=$(pactl -s "unix:$pulse_socket" list short sources) &&
       mic=$(awk '
@@ -42,13 +57,14 @@ for _ in {1..50}; do
       pactl -s "unix:$pulse_socket" set-default-sink output &&
       pactl -s "unix:$pulse_socket" set-default-source "$mic"; then
     # s6 starts svc-selkies only after the audio graph is usable.
+    require_audio_processes
+    touch -- "$ready_marker"
     printf '\n' >&3
     exec 3>&-
     # A crash in any component restarts the graph together.
     wait -n "${pids[@]}"
     exit 1
   fi
-  kill -0 "${pids[@]}" 2>/dev/null || exit 1
   sleep .1
 done
 

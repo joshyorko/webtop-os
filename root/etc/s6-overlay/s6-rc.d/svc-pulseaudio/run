@@ -1,8 +1,5 @@
 #!/usr/bin/with-contenv bash
 set -eu
 
-# PipeWire owns endpoint creation. The base Selkies service will skip its
-# PulseAudio pid-file wait and duplicate null sinks when it sees this marker.
-touch /dev/shm/audio.lock
 unset LD_PRELOAD
 exec s6-setuidgid abc /usr/local/bin/omarchy-audio
