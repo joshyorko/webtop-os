@@ -30,7 +30,7 @@ fi
 if ! /usr/local/bin/webtop-seed-extensions /defaults/webtop-extensions "$extensions_dir"; then
   printf '[omarchy-init-home] Extension seeding incomplete in %s.\n' "$extensions_dir" >&2
 fi
-/usr/local/bin/webtop-link-wallpapers "$extensions_dir"
+/usr/local/bin/webtop-link-extensions "$extensions_dir"
 
 # Fast path once initialization has completed cleanly; never clobber user state.
 if [[ -f "$MARKER" ]]; then

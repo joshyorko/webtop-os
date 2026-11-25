@@ -241,7 +241,7 @@ RUN /usr/local/libexec/webtop/install-runtime && \
       /etc/cont-init.d/40-omarchy-init \
       /usr/local/bin/omarchy-init-home \
       /usr/local/bin/omarchy-audio \
-      /usr/local/bin/webtop-link-wallpapers \
+      /usr/local/bin/webtop-link-extensions \
       /usr/local/bin/webtop-seed-extensions \
       /usr/local/bin/selkies \
       /usr/local/bin/systemd-cat \

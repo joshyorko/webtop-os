@@ -1,11 +1,26 @@
 #!/usr/bin/env bash
-# Expose extension media to the upstream theme picker and wallpaper cycler.
+# Expose tracked customizations at the native Omarchy consumer paths.
 set -euo pipefail
 shopt -s nullglob nocaseglob
 
 extensions=${1:-$HOME/webtop-extensions}
 if (( $# == 0 )) && mountpoint -q /webtop-extensions; then
   extensions=/webtop-extensions
+fi
+
+menu="$extensions/omarchy-menu.jsonc"
+menu_target="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
+menu_default=/defaults/omarchy-profile/.config/omarchy/extensions/omarchy-menu.jsonc
+if [[ -f "$menu" && ! -L "$menu" ]]; then
+  mkdir -p -- "${menu_target%/*}"
+  previous=$(readlink -- "$menu_target") || previous=
+  if [[ $previous == "$HOME/webtop-extensions/omarchy-menu.jsonc" ||
+        $previous == "/webtop-extensions/omarchy-menu.jsonc" ]] ||
+     { [[ ! -L "$menu_target" ]] && cmp -s -- "$menu_default" "$menu_target"; }; then
+    ln -sfnT -- "$menu" "$menu_target"
+  elif [[ ! -e "$menu_target" && ! -L "$menu_target" ]]; then
+    ln -sT -- "$menu" "$menu_target"
+  fi
 fi
 
 for theme_dir in "$extensions"/backgrounds/*/; do

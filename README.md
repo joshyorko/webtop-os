@@ -46,9 +46,11 @@ A cloud-native, unprivileged OCI container image running **[Omarchy 4.5 ("Quattr
   selected wallpaper lives there.
 - The wallpaper picker and cycler read the linked media from Omarchy's user
   backgrounds directory. Reopen the picker after updating a file in place.
-  For a new filename, run `webtop-link-wallpapers` in the Webtop terminal,
-  then `omarchy-theme-bg-switcher`. Other extension files are available under
-  `/webtop-extensions` while the bind is enabled.
+  For a new filename, run `webtop-link-extensions` in the Webtop terminal,
+  then `omarchy-theme-bg-switcher`. To extend the native menu, add
+  `extensions/omarchy-menu.jsonc` and run `webtop-link-extensions`. An existing
+  personal menu takes precedence. Restart the desktop if Quickshell still
+  shows the previous menu.
 - Add extra repository packages to `packages-extra.txt`, one name per line.
   The image installs them with the desktop packages in the full Arch upgrade.
   See `/usr/share/webtop/installed-packages.txt` for the resolved versions.
