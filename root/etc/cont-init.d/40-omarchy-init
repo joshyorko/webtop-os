@@ -6,12 +6,10 @@ TARGET_HOME=/config
 mkdir -p "$TARGET_HOME" /tmp/.X11-unix /etc/omarchy
 chmod 1777 /tmp/.X11-unix
 
-# Ensure a newly mounted volume root is writable by the LinuxServer desktop user abc.
-if [[ "$(stat -c '%u' "$TARGET_HOME")" != "$(id -u abc)" ]]; then
-  chown abc:abc "$TARGET_HOME"
-fi
-
-chmod 0700 "$TARGET_HOME"
+# LinuxServer remaps abc to PUID but image-seeded descendants can retain its
+# build-time UID. Repair those before unprivileged profile initialization.
+/usr/local/libexec/webtop/prepare-home "$TARGET_HOME" \
+  "$(id -u abc)" "$(id -g abc)" "$(cat /usr/share/webtop/desktop-base-uid)"
 
 # Show Omarchy branding in the Selkies dashboard if available.
 if [[ -f /usr/share/omarchy/icon.png && -d /usr/share/selkies/www ]]; then

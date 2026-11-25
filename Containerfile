@@ -239,6 +239,7 @@ RUN /usr/local/libexec/webtop/install-runtime && \
     chmod +x \
       /defaults/startwm_wayland.sh \
       /etc/cont-init.d/40-omarchy-init \
+      /usr/local/libexec/webtop/prepare-home \
       /usr/local/bin/omarchy-init-home \
       /usr/local/bin/omarchy-audio \
       /usr/local/bin/webtop-link-extensions \

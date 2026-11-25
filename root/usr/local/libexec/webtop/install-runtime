@@ -3,6 +3,7 @@
 set -euo pipefail
 
 assets=/usr/local/libexec/webtop
+id -u abc > /usr/share/webtop/desktop-base-uid
 omarchy=/usr/share/omarchy
 first_run="$omarchy/install/user/first-run"
 

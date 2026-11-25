@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+home=$1
+uid=$2
+gid=$3
+base_uid=$4
+[[ $EUID == 0 && $home != / && -d $home && ! -L $home ]]
+[[ $uid =~ ^[0-9]+$ && $gid =~ ^[0-9]+$ && $base_uid =~ ^[0-9]+$ ]]
+(( uid != 0 && gid != 0 ))
+
+# Migrate image-seeded files without following links or crossing filesystems.
+# Preserve files deliberately owned by unrelated users in an existing profile.
+find "$home" -xdev \( -uid 0 -o -uid "$base_uid" \) \
+  -exec chown -h "$uid:$gid" -- {} +
+chown "$uid:$gid" -- "$home"
+chmod 0700 -- "$home"

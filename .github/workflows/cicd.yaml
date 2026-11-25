@@ -27,6 +27,9 @@ jobs:
       - name: Test extension seeding
         run: bash tests/test-webtop-extensions.sh
 
+      - name: Test profile ownership migration
+        run: sudo bash tests/test-profile-ownership.sh
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
